@@ -1,0 +1,52 @@
+name: Video + Audio Stream (Loop & Auto-Restart)
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [restart_stream]
+
+jobs:
+  stream:
+    runs-on: ubuntu-latest
+    timeout-minutes: 358 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt update
+          sudo apt install -y ffmpeg
+
+      - name: Start Live Stream
+        env:
+          STREAM_URL: "rtmp://a.rtmp.youtube.com/live2/k4bv-wakv-50ad-uas6-8rtr"
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "Streaming starting with Copyright Protection (Pitch & Speed Filter)..."
+          
+          # FFmpeg command with Audio Pitch/Speed filters for copyright protection
+          ffmpeg -re \
+            -stream_loop -1 -i video.mp4 \
+            -stream_loop -1 -i audio.mp3 \
+            -filter_complex "[1:a]atempo=1.02,asetrate=44100*1.02,aresample=44100[aout]" \
+            -map 0:v:0 -map "[aout]" \
+            -c:v libx264 \
+            -preset veryfast \
+            -pix_fmt yuv420p \
+            -g 50 \
+            -b:v 2000k \
+            -c:a aac \
+            -b:a 128k \
+            -t 05:50:00 \
+            -f flv \
+            "$STREAM_URL"
+
+          echo "FFmpeg finished. Triggering next workflow..."
+          
+          curl -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d '{"event_type": "restart_stream"}'
