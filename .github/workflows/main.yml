@@ -1,4 +1,4 @@
-name: Video + Audio Stream (Reverse Loop & Audio Protection)
+name: Video + Audio Stream (Loop & Auto-Restart)
 
 on:
   workflow_dispatch:
@@ -24,23 +24,20 @@ jobs:
           STREAM_URL: "rtmp://a.rtmp.youtube.com/live2/k4bv-wakv-50ad-uas6-8rtr"
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          echo "Streaming starting with Reverse Loop and Audio Protection..."
+          echo "Streaming starting with Copyright Protection (Pitch & Speed Filter)..."
           
-          # Filter Explanation:
-          # [0:v]split[v1][v2]; [v2]reverse[v2rev]; [v1][v2rev]concat: 
-          # Ye video ko pehle seedha chalayega fir ulta (reverse), jisse loop smooth lagega.
-          # Audio filters ko 1.04x par rakha hai copyright se bachne ke liye.
-          
+          # FFmpeg command with Audio Filters for copyright protection
+          # atempo=1.02 (2% fast) and asetrate changes pitch
           ffmpeg -re \
             -stream_loop -1 -i video.mp4 \
             -stream_loop -1 -i audio.mp3 \
-            -filter_complex "[0:v]split[v1][v2]; [v2]reverse[v2rev]; [v1][v2rev]concat=n=2:v=1:a=0[vloop]; [1:a]atempo=1.04,asetrate=44100*1.04,aresample=44100[alow]" \
-            -map "[vloop]" -map "[alow]" \
+            -filter_complex "[1:a]atempo=1.02,asetrate=44100*1.02,aresample=44100[aout]" \
+            -map 0:v:0 -map "[aout]" \
             -c:v libx264 \
             -preset veryfast \
             -pix_fmt yuv420p \
-            -g 60 \
-            -b:v 2500k \
+            -g 50 \
+            -b:v 2000k \
             -c:a aac \
             -b:a 128k \
             -t 05:50:00 \
