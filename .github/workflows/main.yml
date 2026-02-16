@@ -21,7 +21,7 @@ jobs:
 
       - name: Start Live Stream
         env:
-          STREAM_URL: "rtmp://a.rtmp.youtube.com/live2/k92k-s69p-66zh-u5qq-9fa5"
+          STREAM_URL: "rtmp://a.rtmp.youtube.com/live2/k4bv-wakv-50ad-uas6-8rtr"
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           echo "Streaming starting with Reverse Loop and Audio Protection..."
