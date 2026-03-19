@@ -29,8 +29,8 @@ jobs:
           # FFmpeg command with Audio Filters for copyright protection
           # atempo=1.02 (2% fast) and asetrate changes pitch
           ffmpeg -re \
-            -stream_loop -1 -i video.mp4 \
-            -stream_loop -1 -i audio.mp3 \
+            -stream_loop -1 -i video5.mp4 \
+            -stream_loop -1 -i audio5.mp3 \
             -filter_complex "[1:a]atempo=1.02,asetrate=44100*1.02,aresample=44100[aout]" \
             -map 0:v:0 -map "[aout]" \
             -c:v libx264 \
