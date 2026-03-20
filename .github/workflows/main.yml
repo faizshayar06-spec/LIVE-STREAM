@@ -1,9 +1,9 @@
-name: Unlimited YT Watcher
+name: Non-Stop YT Watcher
 
 on:
-  workflow_dispatch: # Manual Start button ke liye
+  workflow_dispatch: # Button se start karne ke liye
   schedule:
-    - cron: '0 */6 * * *' # Har 6 ghante baad auto-restart
+    - cron: '0 */6 * * *' # Har 6 ghante mein naya batch shuru hoga
 
 jobs:
   viewer:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 10 Parallel Watchers (Safe side ke liye)
+        # 10 Parallel Watchers (Safe and Effective)
         id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     steps:
@@ -24,9 +24,9 @@ jobs:
         python-version: '3.9'
 
     - name: Install Dependencies
-      run: |
-        pip install selenium webdriver-manager
+      run: pip install selenium webdriver-manager
 
     - name: Start Watching Job
+      env:
+        STREAM_ID: ${{ secrets.STREAM_ID }}
       run: python watch.py
-      
