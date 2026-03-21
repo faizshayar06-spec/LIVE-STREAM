@@ -1,35 +1,52 @@
-name: Non-Stop YT Multi-IP Watcher
+name: 24/7 Single-Stream (Final Stable Fix)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 */6 * * *' # Har 6 ghante mein naya batch
+  repository_dispatch:
+    types: [restart_stream]
+
+env:
+  # Node 20 ki warning hatane ke liye
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  viewer:
+  stream:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # 20 Parallel Watchers (Max for Free Tier)
-        id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    timeout-minutes: 355 
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
+      - name: Install FFmpeg
+        run: |
+          sudo apt update
+          sudo apt install -y ffmpeg
 
-    - name: Install Dependencies
-      run: |
-        pip install -r requirements.txt
+      - name: Check Media Files
+        run: |
+          if [ ! -f "video.mp4" ] || [ ! -f "audio.mp3" ]; then 
+            echo "Error: Files missing! Make sure files are named video.mp4 and audio.mp3" 
+            exit 1
+          fi
 
-    - name: Start Watching Job
-      env:
-        STREAM_ID: ${{ secrets.STREAM_ID }}
-        VIEWER_ID: Watcher-${{ matrix.id }} # Sirf logs mein identifying ke liye
-      run: python watch.py
-      
+      - name: Start Single Live Stream
+        env:
+          S1: ${{ secrets.STREAM_1_URL }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "Starting single stream..."
+
+          # Stable Command: video.mp4 aur audio.mp3 use ho raha hai
+          FF_CMD="-re -stream_loop -1 -i video.mp4 -stream_loop -1 -i audio.mp3 \
+          -map 0:v:0 -map 1:a:0 -c:v libx264 -preset ultrafast -tune zerolatency \
+          -pix_fmt yuv420p -b:v 1500k -c:a aac -b:a 128k -t 05:50:00 -f flv"
+
+          ffmpeg $FF_CMD "$S1"
+
+          echo "Stream finished normally. Re-triggering..."
+          curl -X POST -H "Authorization: token $GH_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/dispatches \
+          -d '{"event_type": "restart_stream"}'
+          
