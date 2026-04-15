@@ -8,11 +8,11 @@ on:
 jobs:
   stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # GitHub max is usually 360 for standard runners
+    timeout-minutes: 360 
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4 # Uses Node 20 (Fixes that warning)
+        uses: actions/checkout@v4
 
       - name: Install FFmpeg
         run: |
@@ -24,26 +24,25 @@ jobs:
           S1: ${{ secrets.STREAM_1_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          # Use a loop so if FFmpeg crashes, it restarts instantly without waiting for a new workflow
-          while true; do
-            ffmpeg -re -stream_loop -1 -i video6.mp4 -stream_loop -1 -i audio6.mp3 \
-            -map 0:v:0 -map 1:a:0 -c:v libx264 -preset superfast -tune zerolatency \
-            -g 60 -keyint_min 60 -sc_threshold 0 \
-            -pix_fmt yuv420p -b:v 2500k -maxrate 2500k -bufsize 5000k \
-            -c:a aac -b:a 128k -ar 44100 \
-            -f flv "$S1" || echo "FFmpeg crashed, restarting in 5 seconds..."
-            
-            sleep 5
-          done & 
+          # FFmpeg with Reconnect settings to prevent sudden exits
+          ffmpeg -re -stream_loop -1 -i video6.mp4 -stream_loop -1 -i audio6.mp3 \
+          -map 0:v:0 -map 1:a:0 -c:v libx264 -preset superfast -tune zerolatency \
+          -g 60 -keyint_min 60 -sc_threshold 0 \
+          -pix_fmt yuv420p -b:v 2500k -maxrate 2500k -bufsize 5000k \
+          -c:a aac -b:a 128k -ar 44100 \
+          -f flv "$S1" &
           
-          # This part handles the 6-hour GitHub timeout transition
-          sleep 350m 
+          # Wait for 340 minutes (5 hours 40 mins)
+          # This gives us 20 minutes buffer before the 6h limit hits
+          sleep 340m 
           
-          echo "Approaching GitHub timeout. Triggering next workflow..."
+          echo "Triggering next workflow to maintain 24/7 stream..."
           curl -X POST -H "Authorization: token $GH_TOKEN" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/${{ github.repository }}/dispatches \
           -d '{"event_type": "restart_stream"}'
           
+          # Give it a few seconds to ensure the next one starts before this one dies
+          sleep 30s
           exit 0
           
