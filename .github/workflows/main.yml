@@ -8,7 +8,7 @@ on:
 jobs:
   stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 320
 
     steps:
       - name: Checkout Code
@@ -19,13 +19,13 @@ jobs:
           S1: ${{ secrets.STREAM_1_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          # Install FFmpeg explicitly to avoid any missing package errors
+          # Install FFmpeg explicitly
           sudo apt update && sudo apt install -y ffmpeg
 
           echo "Starting Stream..."
           
-          # FFmpeg ko exact 300 minutes (5 hours) par rok denge taaki baki kaam ke liye 50 minutes milen
-          timeout -k 1m 300m ffmpeg -re -stream_loop -1 -i video.mp4 -stream_loop -1 -i audio.mp3 \
+          # FFmpeg will safely timeout at 290m, leaving ample time for curl command
+          timeout -k 1m 290m ffmpeg -re -stream_loop -1 -i video.mp4 -stream_loop -1 -i audio.mp3 \
           -map 0:v:0 -map 1:a:0 -c:v libx264 -preset superfast -tune zerolatency \
           -g 60 -keyint_min 60 -sc_threshold 0 \
           -pix_fmt yuv420p -b:v 2500k -maxrate 2500k -bufsize 5000k \
@@ -34,7 +34,7 @@ jobs:
 
           echo "Stream ended. Triggering next workflow now..."
           
-          # Triggering the next run BEFORE GitHub kills the current runner
+          # Triggering the next run successfully before job terminates
           curl -X POST -H "Authorization: token $GH_TOKEN" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/${{ github.repository }}/dispatches \
