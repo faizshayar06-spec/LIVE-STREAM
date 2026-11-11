@@ -19,10 +19,15 @@ jobs:
           S1: ${{ secrets.STREAM_1_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          # Disable interactive prompts & apt delays completely so it never hangs
+          export DEBIAN_FRONTEND=noninteractive
+          
           echo "Checking FFmpeg..."
-          # Ubuntu runner par FFmpeg pehle se hota hai, agar nahi mila tabhi direct install hoga bina 'apt update' ke hang hue
+          # Agar ffmpeg nahi hai tabhi bina apt update ke chupचाप install karega
           if ! command -v ffmpeg &> /dev/null; then
-              sudo apt-get install -y --no-install-recommends ffmpeg
+              sudo apt-get install -qy ffmpeg
+          else
+              echo "FFmpeg already exists, skipping installation!"
           fi
 
           echo "Starting Stream..."
