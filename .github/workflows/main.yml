@@ -5,59 +5,90 @@ on:
   repository_dispatch:
     types: [restart_stream]
 
+permissions:
+  contents: read
+
 concurrency:
-  group: 24-7-persistent-stream-execution
+  group: youtube-live-stream
   cancel-in-progress: false
 
 jobs:
   stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 320
+    timeout-minutes: 355
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup FFmpeg & Start Stream
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+
+      - name: Check Files
+        run: |
+          test -f video.mp4 || exit 1
+          test -f audio.mp3 || exit 1
+          echo "Media files found successfully."
+
+      - name: Start YouTube Live Stream
         env:
           S1: ${{ secrets.STREAM_1_URL }}
+        run: |
+          echo "Starting YouTube Live Stream..."
+
+          timeout -k 30s 330m ffmpeg \
+            -hide_banner \
+            -loglevel warning \
+            -re -stream_loop -1 -i video.mp4 \
+            -re -stream_loop -1 -i audio.mp3 \
+            -map 0:v:0 \
+            -map 1:a:0 \
+            -c:v libx264 \
+            -preset veryfast \
+            -tune zerolatency \
+            -g 60 \
+            -keyint_min 60 \
+            -sc_threshold 0 \
+            -pix_fmt yuv420p \
+            -b:v 2500k \
+            -maxrate 2500k \
+            -bufsize 5000k \
+            -c:a aac \
+            -b:a 128k \
+            -ar 44100 \
+            -f flv "$S1" || true
+
+          echo "Stream stopped. Preparing restart..."
+
+      - name: Trigger Next Workflow
+        if: always()
+        env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          set -e
-          
-          # Check files
-          if [ ! -f "video.mp4" ] || [ ! -f "audio.mp3" ]; then
-              echo "ERROR: video.mp4 or audio.mp3 missing!"
-              exit 1
-          fi
+          echo "Triggering next workflow..."
 
-          echo "Downloading static FFmpeg..."
-          curl -sL https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o ffmpeg.tar.xz
-          tar -xf ffmpeg.tar.xz
-          
-          # Direct exact path finding for ffmpeg binary
-          FFMPEG_BIN=$(find . -type f -name "ffmpeg" -executable | head -n 1)
-          if [ -z "$FFMPEG_BIN" ]; then
-              echo "ERROR: FFmpeg binary not found!"
-              exit 1
-          fi
+          for i in 1 2 3 4 5
+          do
+            CODE=$(curl -sS -o /tmp/result.txt \
+              -w "%{http_code}" \
+              -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/dispatches" \
+              -d '{"event_type":"restart_stream"}')
 
-          echo "Starting Live Stream now..."
-          
-          # Stream execution with strict path
-          timeout -k 1m 290m "$FFMPEG_BIN" -re -stream_loop -1 -i video.mp4 -stream_loop -1 -i audio.mp3 \
-          -map 0:v:0 -map 1:a:0 -c:v libx264 -preset superfast -tune zerolatency \
-          -g 60 -keyint_min 60 -sc_threshold 0 \
-          -pix_fmt yuv420p -b:v 2500k -maxrate 2500k -bufsize 5000k \
-          -c:a aac -b:a 128k -ar 44100 \
-          -f flv "$S1" || echo "FFmpeg finished or timeout reached safely."
+            if [ "$CODE" = "204" ]; then
+              echo "Next workflow triggered successfully!"
+              exit 0
+            fi
 
-          echo "Stream ended. Triggering next workflow..."
-          
-          curl -X POST -H "Authorization: token $GH_TOKEN" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/${{ github.repository }}/dispatches \
-          -d '{"event_type": "restart_stream"}'
+            echo "Retry $i failed. HTTP: $CODE"
+            cat /tmp/result.txt
+            sleep 5
+          done
 
-          sleep 10s
-          
+          echo "Restart trigger failed."
+          exit 1
