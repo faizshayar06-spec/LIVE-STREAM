@@ -14,23 +14,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Bypass Apt & Download Direct FFmpeg Binaries
+      - name: Install Official FFmpeg Directly (No Update, No Segfault)
         run: |
-          echo "Bypassing apt mirrors completely... Downloading direct FFmpeg build!"
-          
-          # Direct static build download (No apt, no Ign, no waiting)
-          curl -L https://www.johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o ffmpeg.tar.xz
-          
-          # Extract binary instantly
-          tar -xf ffmpeg.tar.xz
-          
-          # Move binaries to local bin so system can run it instantly
-          sudo mv ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/
-          sudo mv ffmpeg-*-amd64-static/ffprobe /usr/local/bin/
-          
-          # Verify it's ready
+          echo "Installing official stable FFmpeg directly..."
+          sudo apt-get install -y ffmpeg
           ffmpeg -version
-          echo "FFmpeg ready successfully without apt!"
 
       - name: Start Loop Stream and Auto-Trigger
         env:
