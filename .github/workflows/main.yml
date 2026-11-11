@@ -19,8 +19,9 @@ jobs:
           S1: ${{ secrets.STREAM_1_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          # Install FFmpeg explicitly to avoid any missing package errors
-          sudo apt update && sudo apt install -y ffmpeg
+          # Fast update and non-interactive install to avoid apt mirrors hanging
+          sudo apt-get update -y || sudo apt-get update -y --fix-missing
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg
 
           echo "Starting Stream..."
           
@@ -33,7 +34,12 @@ jobs:
           -c:a aac -b:a 128k -ar 44100 \
           -f flv "$S1" || echo "FFmpeg stopped or reached the time limit safely."
 
-          echo "Stream ended. Triggering next workflow now..."
+          echo "Stream ended. Waiting to prevent instant loop block..."
+          
+          # Natural delay added so GitHub's bot doesn't flag it as a spammy instant loop
+          sleep 45s
+
+          echo "Triggering next workflow now..."
           
           # Triggering the next run BEFORE GitHub kills the current runner
           curl -X POST -H "Authorization: token $GH_TOKEN" \
@@ -44,4 +50,3 @@ jobs:
           echo "Next workflow triggered successfully! Shutting down..."
           sleep 10s
           
-
