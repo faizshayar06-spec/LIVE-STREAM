@@ -19,8 +19,11 @@ jobs:
           S1: ${{ secrets.STREAM_1_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          # Install FFmpeg explicitly
-          sudo apt update && sudo apt install -y ffmpeg
+          echo "Checking FFmpeg..."
+          # Ubuntu runner par FFmpeg pehle se hota hai, agar nahi mila tabhi direct install hoga bina 'apt update' ke hang hue
+          if ! command -v ffmpeg &> /dev/null; then
+              sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
 
           echo "Starting Stream..."
           
