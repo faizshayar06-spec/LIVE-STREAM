@@ -19,8 +19,11 @@ jobs:
           S1: ${{ secrets.STREAM_1_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          # Fast update and non-interactive install to avoid apt mirrors hanging
-          sudo apt-get update -y || sudo apt-get update -y --fix-missing
+          # Remove extra Microsoft/Azure lists so apt update stays clean and fast (jaise pehle hota tha)
+          sudo rm -f /etc/apt/sources.list.d/microsoft* /etc/apt/sources.list.d/azure* 2>/dev/null || true
+
+          # Clean and fast update and install
+          sudo apt-get update -y
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg
 
           echo "Starting Stream..."
