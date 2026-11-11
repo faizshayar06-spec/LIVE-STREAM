@@ -14,17 +14,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Official FFmpeg Directly (No Update, No Segfault)
-        run: |
-          echo "Installing official stable FFmpeg directly..."
-          sudo apt-get install -y ffmpeg
-          ffmpeg -version
-
       - name: Start Loop Stream and Auto-Trigger
         env:
           S1: ${{ secrets.STREAM_1_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          echo "Checking pre-installed FFmpeg..."
+          ffmpeg -version
+
           echo "Starting Stream Instantly..."
           
           timeout -k 1m 330m ffmpeg -re -stream_loop -1 -i video.mp4 -stream_loop -1 -i audio.mp3 \
